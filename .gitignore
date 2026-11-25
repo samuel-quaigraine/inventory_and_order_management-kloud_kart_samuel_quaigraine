@@ -1,0 +1,27 @@
+# Local reference and course materials
+h3lp/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Testing
+.pytest_cache/
+
+# Large datasets and customer records
+*.csv
+*.parquet
+*.xlsx
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Operating system
+.DS_Store
+Thumbs.db

@@ -1,0 +1,61 @@
+Instructions
+Kloud Kart Ltd., an e-commerce company in Accra, has a database that is starting to fight back against the business it's supposed to run. The work is not "write these queries." It's deciding how to stop the company from selling stock it doesn't have, how to make a report fast enough that someone will actually trust it, and defending both decisions to someone whose operation depends on the answer.
+
+Background
+Kloud Kart is an e-commerce company in Accra doing roughly 4,000 orders a day. It grew fast on a database schema nobody ever redesigned, and it still runs on plain PostgreSQL: no exotic infrastructure, no budget for new tooling, just the one server it has always had.
+
+Categories nest three or four levels deep, and marketing keeps adding subcategories.
+
+Nobody has ever audited this data; Nana suspects it has problems neither of you has noticed yet.
+
+Problem Statement
+Nana Adjei runs operations for Kloud Kart, and two things are keeping him up at night. Last month the company oversold its best-selling product twice: two orders landed at the same moment, both took the same last unit, and customers paid for stock that didn't exist. Each time cost a refund, an apology, and reviews he can't undo; his stock counts no longer match reality closely enough to trust.
+
+The second problem is quieter. His analyst Adwoa runs a weekly customer-spending report every Monday; it takes about 40 minutes and some Mondays doesn't finish, so Nana has started deciding without it. He's been told "triggers" might fix the overselling, and someone already priced a bigger server for the slow report; neither guess has convinced him.
+
+Nana is hoping for:
+
+No overselling. Two customers racing for the last unit: exactly one gets it, the other gets an instant, clear "out of stock," every time.
+
+A fast Monday report. For every customer: total spent, order count, monthly spend for the trailing 12 months, a running per-customer total (Adwoa now tracks this by hand), and a top-100 ranking, all in seconds on an ordinary laptop.
+
+Low-stock visibility at a glance, rolled up through the nested category tree (Electronics → Phones → Phone Accessories → Cases), in a couple of seconds.
+
+Proof of what happened. A trail of every stock movement, sale, restock, correction, that an auditor could walk through after the fact.
+
+Resources Given
+A PostgreSQL-loadable data bundle (schema, load script, and CSVs for categories, products, customers, orders, order items, and the inventory log) that you load yourself, plus race_test.py, the exact concurrency test that will run against your order-placement mechanism.
+
+The data is messy on purpose and contains undocumented problems; finding and documenting them is graded, but not everything that looks wrong is wrong.
+
+Constraints
+Must keep running on Kloud Kart's existing PostgreSQL server: no new databases, infrastructure, or monthly bill. Schema changes are fine if documented, since his team lives with them after you leave.
+
+The order-placement mechanism is tested with race_test.py: two attempts to buy the last unit fired at essentially the same moment, run exactly as shipped. It must pass without you touching it.
+
+Don't hard-code how deep the category tree goes.
+
+Nana isn't available for follow-up questions and isn't precious about the schema: where this brief doesn't settle something, decide and tell him what you decided and why.
+
+Kloud Kart's first flash sales are coming, and marketing expects spikes of around 400 orders in ten seconds on a single product. Build with that day in mind, not just today's ordinary traffic.
+
+Deliverables
+A written diagnosis of the data: every problem found, how you detected it, and what it costs Nana if uncorrected, ranked by danger.
+
+The working SQL solution: schema objects, procedures or functions, views, and reports that run top to bottom against a fresh load and satisfy Nana's four criteria above.
+
+A written explanation of your key decisions: how you solved the overselling problem and whether triggers alone would have, how you made the report fast, and where you assumed something the brief left open.
+
+A one-page memo to Nana: business language, no jargon, what you built and found, what you'd recommend next, and what you couldn't personally stand behind.
+
+One improvement beyond the brief, implemented and justified in terms of what it's worth to Nana or Adwoa.
+
+Rubric
+Your work is graded against these weighted criteria.
+
+Criterion	Description	Weight
+Analyze	What's Assessed: Data diagnosis · What "Good" Looks Like: Real problems that threaten Kloud Kart's numbers, quantified and ranked by risk; not a flat list of everything untidy, and not effort spent fixing what was never broken.	20%
+Apply	What's Assessed: Working solution · What "Good" Looks Like: Runs cleanly from a fresh load; concurrency race test passes unmodified, every time; report and rollup return within Nana's budget.	20%
+Apply / Create	What's Assessed: Harder technical work · What "Good" Looks Like: Concurrency, recursive rollup, and reporting logic built with the right tool, not brute force; performance backed by a real before/after comparison.	20%
+Evaluate	What's Assessed: Reasoning · What "Good" Looks Like: Every judgement call named, decided, and defended, with what it costs Nana if you're wrong; rejected alternatives are real; states what survives flash-sale volumes and what a naive build would have cost later.	20%
+Evaluate / Create	What's Assessed: Client outcome · What "Good" Looks Like: A memo Nana can act on, honest about what's unverified, plus one improvement that genuinely helps him or Adwoa.	20%
