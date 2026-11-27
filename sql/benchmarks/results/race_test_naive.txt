@@ -1,0 +1,103 @@
+race_test.py — Kloud Kart order placement under contention
+==================================================================
+  place_order found: place_order(p_customer_id bigint, p_product_id bigint, p_quantity integer)
+
+Test 1 — two buyers, one unit, 25 rounds
+        [  0] success=True order_id=1000001    12.3ms msg='Order placed' err=''
+        [  1] success=True order_id=1000000     8.0ms msg='Order placed' err=''
+        [  0] success=True order_id=1000002     6.3ms msg='Order placed' err=''
+        [  1] success=True order_id=1000003    10.2ms msg='Order placed' err=''
+        [  0] success=True order_id=1000004     6.4ms msg='Order placed' err=''
+        [  1] success=True order_id=1000005    10.6ms msg='Order placed' err=''
+        [  0] success=True order_id=1000007    10.8ms msg='Order placed' err=''
+        [  1] success=True order_id=1000006     6.2ms msg='Order placed' err=''
+        [  0] success=True order_id=1000008     6.4ms msg='Order placed' err=''
+        [  1] success=True order_id=1000009    11.6ms msg='Order placed' err=''
+        [  0] success=True order_id=1000011    13.9ms msg='Order placed' err=''
+        [  1] success=True order_id=1000010     8.8ms msg='Order placed' err=''
+        [  0] success=True order_id=1000013    11.0ms msg='Order placed' err=''
+        [  1] success=True order_id=1000012     6.4ms msg='Order placed' err=''
+        [  0] success=True order_id=1000014    10.0ms msg='Order placed' err=''
+        [  1] success=True order_id=1000015    14.8ms msg='Order placed' err=''
+        [  0] success=True order_id=1000016     8.2ms msg='Order placed' err=''
+        [  1] success=True order_id=1000017    15.3ms msg='Order placed' err=''
+        [  0] success=True order_id=1000019    11.6ms msg='Order placed' err=''
+        [  1] success=True order_id=1000018     7.0ms msg='Order placed' err=''
+        [  0] success=True order_id=1000020     5.8ms msg='Order placed' err=''
+        [  1] success=True order_id=1000021     9.9ms msg='Order placed' err=''
+        [  0] success=True order_id=1000023    11.3ms msg='Order placed' err=''
+        [  1] success=True order_id=1000022     6.0ms msg='Order placed' err=''
+        [  0] success=True order_id=1000025     9.9ms msg='Order placed' err=''
+        [  1] success=True order_id=1000024     6.0ms msg='Order placed' err=''
+        [  0] success=True order_id=1000026     6.1ms msg='Order placed' err=''
+        [  1] success=True order_id=1000027    10.1ms msg='Order placed' err=''
+        [  0] success=True order_id=1000028    10.0ms msg='Order placed' err=''
+        [  1] success=True order_id=1000029    14.9ms msg='Order placed' err=''
+        [  0] success=True order_id=1000030     6.6ms msg='Order placed' err=''
+        [  1] success=True order_id=1000031    11.0ms msg='Order placed' err=''
+        [  0] success=True order_id=1000033    12.2ms msg='Order placed' err=''
+        [  1] success=True order_id=1000032     7.5ms msg='Order placed' err=''
+        [  0] success=True order_id=1000035    11.3ms msg='Order placed' err=''
+        [  1] success=True order_id=1000034     6.5ms msg='Order placed' err=''
+        [  0] success=True order_id=1000037    11.8ms msg='Order placed' err=''
+        [  1] success=True order_id=1000036     6.8ms msg='Order placed' err=''
+        [  0] success=True order_id=1000038     8.2ms msg='Order placed' err=''
+        [  1] success=True order_id=1000039    13.6ms msg='Order placed' err=''
+        [  0] success=True order_id=1000041    10.2ms msg='Order placed' err=''
+        [  1] success=True order_id=1000040     5.9ms msg='Order placed' err=''
+        [  0] success=True order_id=1000042     6.2ms msg='Order placed' err=''
+        [  1] success=True order_id=1000043    10.8ms msg='Order placed' err=''
+        [  0] success=True order_id=1000044     6.4ms msg='Order placed' err=''
+        [  1] success=True order_id=1000045    10.9ms msg='Order placed' err=''
+        [  0] success=True order_id=1000046     6.0ms msg='Order placed' err=''
+        [  1] success=True order_id=1000047    10.0ms msg='Order placed' err=''
+        [  0] success=True order_id=1000048     6.8ms msg='Order placed' err=''
+        [  1] success=True order_id=1000049    11.5ms msg='Order placed' err=''
+  FAIL  round 0: 2 calls succeeded, expected exactly 1
+  FAIL  round 0: 0 calls were refused, expected exactly 1
+  FAIL  round 0: 2 orders contain the product, expected 1
+  FAIL  round 1: 2 calls succeeded, expected exactly 1
+  FAIL  round 1: 0 calls were refused, expected exactly 1
+  FAIL  round 1: 2 orders contain the product, expected 1
+  FAIL  round 2: 2 calls succeeded, expected exactly 1
+  FAIL  round 2: 0 calls were refused, expected exactly 1
+  FAIL  round 2: 2 orders contain the product, expected 1
+  FAIL  round 3: 2 calls succeeded, expected exactly 1
+  FAIL  round 3: 0 calls were refused, expected exactly 1
+  FAIL  round 3: 2 orders contain the product, expected 1
+  FAIL  round 4: 2 calls succeeded, expected exactly 1
+  FAIL  round 4: 0 calls were refused, expected exactly 1
+  FAIL  round 4: 2 orders contain the product, expected 1
+  FAIL  25/25 rounds failed. A race that fails sometimes is the race Nana already has.
+
+Test 2 — flash sale: 400 buyers, 50 units
+        400 sold, 0 refused, 0 errored, wall clock 4.54s
+  FAIL  400 calls succeeded, expected exactly 50
+  FAIL  stock ended at 48, expected 0
+
+Test 3 — asking for more than exists
+  ok    refused cleanly, stock untouched
+
+Test 4 — audit trail after contention
+  ok    12 sold, 12 movements recorded
+
+==================================================================
+FAILED — 18 problem(s):
+  - round 0: 2 calls succeeded, expected exactly 1
+  - round 0: 0 calls were refused, expected exactly 1
+  - round 0: 2 orders contain the product, expected 1
+  - round 1: 2 calls succeeded, expected exactly 1
+  - round 1: 0 calls were refused, expected exactly 1
+  - round 1: 2 orders contain the product, expected 1
+  - round 2: 2 calls succeeded, expected exactly 1
+  - round 2: 0 calls were refused, expected exactly 1
+  - round 2: 2 orders contain the product, expected 1
+  - round 3: 2 calls succeeded, expected exactly 1
+  - round 3: 0 calls were refused, expected exactly 1
+  - round 3: 2 orders contain the product, expected 1
+  - round 4: 2 calls succeeded, expected exactly 1
+  - round 4: 0 calls were refused, expected exactly 1
+  - round 4: 2 orders contain the product, expected 1
+  - 25/25 rounds failed. A race that fails sometimes is the race Nana already has.
+  - 400 calls succeeded, expected exactly 50
+  - stock ended at 48, expected 0
