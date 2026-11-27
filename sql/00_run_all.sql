@@ -1,10 +1,9 @@
 -- 00_run_all.sql
 -- Runs the whole solution, in order, against a fresh load.
 --
--- From the project root:
---     psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f schema.sql
---     psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f load.sql
---     psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f sql/00_run_all.sql
+-- Normally run by load.sql (project root), after given/schema.sql and given/load.sql.
+-- To run it on its own after a fresh load:
+--     psql -v ON_ERROR_STOP=1 -f sql/00_run_all.sql
 --
 -- \ir includes a file relative to this one, so it works from any directory.
 

@@ -1,0 +1,17 @@
+# Local PostgreSQL for the Kloud Kart lab.
+# The project folder is mounted at /lab, so psql inside the container can run every file.
+# The password is read from a local .env file (never committed). Copy .env.example to .env first.
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env - see .env.example}
+      POSTGRES_DB: kloudkart
+    # 500 connections: race_test.py opens 400 at once for the flash-sale test.
+    command: ["postgres", "-c", "max_connections=500"]
+    ports:
+      - "${KK_PORT:-5432}:5432"
+    volumes:
+      - ./:/lab
+    working_dir: /lab

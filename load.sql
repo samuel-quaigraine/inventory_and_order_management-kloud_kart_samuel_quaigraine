@@ -1,28 +1,21 @@
--- Load Kloud Kart's extract. Run from this directory so the relative paths
--- resolve:
+-- load.sql
+-- Kloud Kart: builds the CORRECT database from the CSV files, in one command.
+-- Run from the project root (so data/ resolves):
+--     psql -v ON_ERROR_STOP=1 -f load.sql
 --
---     psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f schema.sql
---     psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f load.sql
---
--- \copy runs client-side, so this works against a database in Docker or on
--- another host without needing server filesystem access.
+-- Why it doesn't load straight into the final schema.sql: the CSVs contain rows that break its
+-- rules (orphans, 15 status spellings, negative stock...), so the very first bad row would stop
+-- the load. Instead the data goes in the way it was found, is cleaned, and THEN the rules go on.
+-- The result has exactly the structure described in schema.sql.
 
 \set ON_ERROR_STOP on
-\timing on
 
-\copy categories    (category_id, category_name, parent_id)                                  FROM 'data/categories.csv'    WITH (FORMAT csv, HEADER true, NULL '')
-\copy products      (product_id, product_name, category_id, price, stock_quantity, created_at) FROM 'data/products.csv'      WITH (FORMAT csv, HEADER true, NULL '')
-\copy customers     (customer_id, full_name, email, phone, city, registered_at)              FROM 'data/customers.csv'     WITH (FORMAT csv, HEADER true, NULL '')
-\copy orders        (order_id, customer_id, order_date, status, total_amount)                FROM 'data/orders.csv'        WITH (FORMAT csv, HEADER true, NULL '')
-\copy order_items   (order_item_id, order_id, product_id, quantity, unit_price)              FROM 'data/order_items.csv'   WITH (FORMAT csv, HEADER true, NULL '')
-\copy inventory_log (log_id, product_id, change_qty, reason, created_at, note)               FROM 'data/inventory_log.csv' WITH (FORMAT csv, HEADER true, NULL '')
+-- 1. The original tables, exactly as delivered (no rules yet).
+\ir given/schema.sql
 
-ANALYZE;
+-- 2. The CSV files, exactly as delivered.
+\ir given/load.sql
 
-SELECT 'categories'    AS table_name, count(*) FROM categories
-UNION ALL SELECT 'products',      count(*) FROM products
-UNION ALL SELECT 'customers',     count(*) FROM customers
-UNION ALL SELECT 'orders',        count(*) FROM orders
-UNION ALL SELECT 'order_items',   count(*) FROM order_items
-UNION ALL SELECT 'inventory_log', count(*) FROM inventory_log
-ORDER BY 1;
+-- 3. Diagnose, clean, add the rules, then build place_order, the audit trail, indexes,
+--    the report, the rollup and cancel_order.
+\ir sql/00_run_all.sql

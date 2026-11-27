@@ -4,7 +4,9 @@
 
 The extract loaded in full and covers 2025-08-02 to 2026-08-31, plus 24 stray orders dated later. Four problems change the numbers Nana and Adwoa rely on: order status is spelled 15 ways, so an exact filter gets 85 of the top-100 customers wrong; 14 products were oversold; a double-insert bug added 617 order lines and 519 log rows; and orphan rows sit in id blocks that look like test or imported data. The stock log only appears to miss sales: cancelled, pending and refunded orders never took stock, by design. Volume is lower than the brief's ~4,000 orders a day (the busiest month averages ~1,170), so the extract may be a sample.
 
-All checks are read-only: `sql/01_diagnosis.sql` runs `sql/diagnosis/01–08`. Check ids (A1, H7, …) refer to those files.
+**What was done:** bad rows were moved to quarantine tables with a reason (234 orders, 1,979 order lines, 679 log rows), never deleted; text and statuses were standardised; and rules were added so none of these problems can be stored again (`sql/02_cleanup.sql`, `sql/03_constraints.sql`).
+
+All checks are read-only: `sql/01_diagnosis.sql` runs `sql/diagnosis/01–08`. Check ids (A1, H7, …) refer to those files. Cleanup is in `sql/cleanup/01–06`, one file per table.
 
 ## Reconciliation
 
@@ -12,18 +14,18 @@ Three checks, one for each way the data can go wrong: rows going missing, money 
 
 ### 1. Rows: did anything go missing?
 
-Each table is counted at every stage. The "after cleanup" column is filled in once cleanup is built; any row removed there is moved to quarantine, not deleted.
+Each table is counted at every stage. Rows removed by cleanup are in the matching `_quarantine` table, with a reason.
 
 | Table | CSV file | Loaded | Delta | After cleanup | Delta | Reason |
 |---|---|---|---|---|---|---|
-| categories | 94 | 94 | 0 | _to fill_ | | |
-| products | 4,023 | 4,023 | 0 | _to fill_ | | |
-| customers | 40,420 | 40,420 | 0 | _to fill_ | | |
-| orders | 159,384 | 159,384 | 0 | _to fill_ | | |
-| order_items | 336,559 | 336,559 | 0 | _to fill_ | | |
-| inventory_log | 282,352 | 282,352 | 0 | _to fill_ | | |
+| categories | 94 | 94 | 0 | 94 | 0 | 3 unreachable categories made top-level (F-07) |
+| products | 4,023 | 4,023 | 0 | 4,023 | 0 | 14 negative stock levels set to 0 (F-02) |
+| customers | 40,420 | 40,420 | 0 | 40,420 | 0 | Text tidied (F-13); duplicates kept (F-11) |
+| orders | 159,384 | 159,384 | 0 | 159,150 | −234 | 210 with no customer (F-04), 24 after the extract (F-08) |
+| order_items | 336,559 | 336,559 | 0 | 334,580 | −1,979 | 692 with no order, 519 whose order was quarantined, 614 repeats, 148 no price, 6 absurd |
+| inventory_log | 282,352 | 282,352 | 0 | 282,236 | −116 | 679 quarantined (519 duplicates, 120 no product, 40 after the extract); 563 corrections added (see Units) |
 
-Every row in every file was loaded (`check_setup.sql`).
+Every row in every file was loaded (`check_setup.sql`). After cleanup, every row is either still in its table or in quarantine: none disappeared.
 
 ### 2. Money: do order totals agree with their lines? (H2)
 
@@ -39,6 +41,8 @@ The sum of all order lines (quantity × price) is **3,400,694 GHS higher** than 
 | **Total** | **159,384** | **+3,400,694** | |
 
 The order totals are the trustworthy figure: almost all of the gap comes from errors in the lines. This is why spend in the Monday report is taken from the order total.
+
+**After cleanup** the lines are 610,666 GHS *lower* than the totals: 149 orders with zero-price lines (−123,112) and 1,793 orders in the discount group (−487,554). That group grew because about 200 orders lost a line to quarantine (no price, absurd quantity) while their total stayed. 30 orders now have no lines at all. The order total remains the figure to report from.
 
 ### 3. Units: does the stock log match the orders? (H4)
 
@@ -56,6 +60,8 @@ Only completed and shipped orders take stock off the shelf. The six absurd-quant
 
 The log matches the orders that shipped. The "missing" 22% are orders that never took stock. One caution: 70 is a *net* figure. Some shipped units were never logged, while 120 logged sales belong to products that do not exist (F-04), so the two errors partly cancel out. The duplicate lines and duplicate log rows (F-03) also cancel each other. The match is close, but not as close as 70 suggests.
 
+**After cleanup** stock equals the sum of its log for all 4,023 products (H1). 14 correction rows record the negative stock being reset, and 549 record gaps that had no log entry (missing opening stock, removed duplicates). Each is marked `cleanup:` in its note.
+
 ## Findings, ranked by risk
 
 Severity: **Critical** = loses money or customers, or makes a decision number wrong · **High** = silently distorts reports or breaks the solution · **Medium** = real but contained · **Low** = untidy, no number affected.
@@ -66,8 +72,8 @@ Severity: **Critical** = loses money or customers, or makes a decision number wr
 - **How I detected it:** D2 (spellings), H7 (top 100 both ways).
 - **Scale:** Only 22,091 of 111,351 completed orders match `'completed'` exactly.
 - **Effect on the client's number:** The naive top 100 shares only **15 customers** with the correct one.
-- **What I did about it:** _Planned: standardise to 5 values; CHECK constraint._
-- **Residual risk:** Which statuses count as "spent" is a business decision.
+- **What I did about it:** Rewrote all statuses to 5 values (`cleanup/04_orders.sql`); a CHECK rule now refuses any other spelling.
+- **Residual risk:** Which statuses count as "spent" is a business decision; my default is completed + shipped.
 
 ### F-02: Overselling — Severity: Critical
 
@@ -75,7 +81,7 @@ Severity: **Critical** = loses money or customers, or makes a decision number wr
 - **How I detected it:** C2 (negative stock), H1 (stock vs log).
 - **Scale:** 14 products, as low as −4; 13 match their log, so the oversell was recorded but not blocked.
 - **Effect on the client's number:** Customers sold items that did not exist.
-- **What I did about it:** _Planned: atomic stock claim in `place_order` (ADR-001); `stock >= 0` CHECK._
+- **What I did about it:** Reset the 14 to 0 with a logged correction. `place_order` checks and takes stock in one step (ADR-001), with a `stock >= 0` rule as the safety net. `race_test.py`: 400 buyers on 50 units now sells exactly 50 (the old way sold 400).
 - **Residual risk:** Earlier oversells cannot be counted (no opening stock, F-09).
 
 ### F-03: Double-insert bug — Severity: High
@@ -84,7 +90,7 @@ Severity: **Critical** = loses money or customers, or makes a decision number wr
 - **How I detected it:** E5 (repeated lines), F5 (duplicate log rows), H2 (totals).
 - **Scale:** 617 extra order lines (577 identical copies); 519 duplicate log rows.
 - **Effect on the client's number:** Line revenue overstated by 882,398 GHS; units and stock movements double-counted. Order totals are correct.
-- **What I did about it:** _Planned: quarantine copies; UNIQUE (order, product)._
+- **What I did about it:** Quarantined 614 repeated lines and 519 duplicate log rows, keeping the first of each. A UNIQUE rule allows one line per product per order.
 - **Residual risk:** 39 pairs differ and may be genuine second lines.
 
 ### F-04: Orphan rows in separate id blocks — Severity: High
@@ -93,7 +99,7 @@ Severity: **Critical** = loses money or customers, or makes a decision number wr
 - **How I detected it:** G1 (counts), G2 (id ranges), G7 (highest ids).
 - **Scale:** 210 orders (customer ids 999007–999997), 692 order lines (order ids 900101–999862), 120 log rows (product ids 99011–99999), 1 category. None overlap the real ranges.
 - **Effect on the client's number:** Blocks foreign keys; a new order-id sequence must start above 999,862 or old orphan lines attach to new orders.
-- **What I did about it:** _Planned: quarantine (ADR-005), then foreign keys._
+- **What I did about it:** Quarantined them (ADR-005), then added foreign keys on every link. New order ids start at 1,000,000.
 - **Residual risk:** Source unconfirmed.
 
 ### F-05: Absurd quantities — Severity: High
@@ -102,8 +108,8 @@ Severity: **Critical** = loses money or customers, or makes a decision number wr
 - **How I detected it:** E2, E3, H6.
 - **Scale:** 6 lines, 3.06M GHS of line value. The order totals are normal (order 583621: 9,999 × 87.35, total 87.35), so the quantity is wrong.
 - **Effect on the client's number:** Line-based units and revenue inflated; `total_amount` unaffected.
-- **What I did about it:** _Planned: quarantine; CHECK on quantity range._
-- **Residual risk:** None once quarantined.
+- **What I did about it:** Quarantined the 6 lines; a CHECK now allows quantities from 1 to 100.
+- **Residual risk:** Those orders keep their (correct) total but show fewer units.
 
 ### F-06: Missing and zero line prices — Severity: High
 
@@ -111,8 +117,8 @@ Severity: **Critical** = loses money or customers, or makes a decision number wr
 - **How I detected it:** E4 (counts), H2b (was the customer charged?).
 - **Scale:** 148 NULL, 152 zero. 142 of the 152 zero-price lines were charged at full list price, so the price was lost, not discounted.
 - **Effect on the client's number:** `SUM` skips NULLs silently; line revenue understated.
-- **What I did about it:** _Planned: flag; NOT NULL and `> 0` for new lines._
-- **Residual risk:** Restoring from list price assumes it did not change.
+- **What I did about it:** Quarantined the 148 lines with no price; a price is now required. Zero-price lines were kept: the order total is right and reports use it.
+- **Residual risk:** 150 zero-price lines remain and understate line revenue; 30 orders now have no lines.
 
 ### F-07: Category loop and missing parent — Severity: High
 
@@ -120,7 +126,7 @@ Severity: **Critical** = loses money or customers, or makes a decision number wr
 - **How I detected it:** A3, A4, A5 (tree walk), G4.
 - **Scale:** 3 categories unreachable; 6 products inside them. A foreign key cannot catch the loop.
 - **Effect on the client's number:** The low-stock rollup skips them, or loops forever without a guard.
-- **What I did about it:** _Planned: loop guard (ADR-004); fix the parents in cleanup._
+- **What I did about it:** Any category the tree walk cannot reach is now top-level (one rule fixes both); a foreign key checks parents, and the rollup has a loop guard (ADR-004).
 - **Residual risk:** The right parents are a business decision.
 
 ### F-08: Records after the extract ends — Severity: High
@@ -129,7 +135,7 @@ Severity: **Critical** = loses money or customers, or makes a decision number wr
 - **How I detected it:** D3, D4, F4.
 - **Scale:** 24 orders and 40 log sales after 2026-08-31; 15 orders in the future.
 - **Effect on the client's number:** "Trailing 12 months" anchored on the latest date would report on almost nothing.
-- **What I did about it:** _Planned: quarantine; anchor the report on a stated date._
+- **What I did about it:** Quarantined the 24 orders, their lines and their 40 log rows; the report counts back from a stated date (2026-08-31 by default).
 - **Residual risk:** They may be clock or time-zone errors.
 
 ### F-09: Stock vs log mismatch; no opening stock — Severity: High
@@ -138,8 +144,8 @@ Severity: **Critical** = loses money or customers, or makes a decision number wr
 - **How I detected it:** H1, F6.
 - **Scale:** 144 products mismatch (net −2,375 units). For 2,911 products the first log entry is a sale.
 - **Effect on the client's number:** The log cannot prove current stock.
-- **What I did about it:** _Planned: opening-balance entry per product (ADR-002)._
-- **Residual risk:** Part of the mismatch stays unexplained.
+- **What I did about it:** Added 549 `cleanup:` corrections so stock equals the log for every product. New products now get an opening-balance row automatically (ADR-002).
+- **Residual risk:** The corrections explain the gap but not its cause; stock was treated as the truth.
 
 ### F-10: Weak audit trail — Severity: High
 
@@ -147,7 +153,7 @@ Severity: **Critical** = loses money or customers, or makes a decision number wr
 - **How I detected it:** F3 (notes), F7 (stock-takes), G6 (log-to-order link).
 - **Scale:** 216 of 485 corrections say "??", "see WhatsApp msg" or nothing. All 90 stock-takes record 0 and none was followed by a correction (F7), so the counts were never applied. A sale's timestamp equals its order's, so 261,968 of 262,088 sales can be linked back.
 - **Effect on the client's number:** Nana cannot answer "who changed this, and why?"
-- **What I did about it:** _Planned: every change through the log with order and reason (ADR-002); backfill `order_id`._
+- **What I did about it:** Every stock change now writes a log row automatically, with reason, order and user; log rows can't be edited and deleted ones are archived (ADR-002). Past sales were linked to their orders (261,005 linked).
 - **Residual risk:** Past corrections stay unexplained.
 
 ### F-11: Duplicate customer emails — Severity: Medium
@@ -156,7 +162,7 @@ Severity: **Critical** = loses money or customers, or makes a decision number wr
 - **How I detected it:** B3, B4.
 - **Scale:** 533 groups (1,068 rows); 234 hidden by formatting. Same name, never the same phone.
 - **Effect on the client's number:** One person's spend could split across ids; none are in the top 100.
-- **What I did about it:** _Planned: flag, do not merge (ADR-005)._
+- **What I did about it:** Kept as separate customers, not merged (ADR-005); emails are now stored trimmed and lowercase so duplicates can't hide.
 - **Residual risk:** Same person or not is unproven.
 
 ### F-12: Totals off by clean percentages — Severity: Medium
@@ -165,7 +171,7 @@ Severity: **Critical** = loses money or customers, or makes a decision number wr
 - **How I detected it:** H2, H3, E6.
 - **Scale:** 1,589 orders; ratios at 0.50, 0.75, 0.90, 1.10, 1.25. Line prices are only ever at or below list.
 - **Effect on the client's number:** Spend must come from `total_amount`, what the customer paid.
-- **What I did about it:** _Planned: report from `total_amount`._
+- **What I did about it:** The Monday report uses `total_amount`.
 - **Residual risk:** The discount and fee rules are not stored.
 
 ### F-13: Untidy text — Severity: Low
@@ -174,7 +180,7 @@ Severity: **Critical** = loses money or customers, or makes a decision number wr
 - **How I detected it:** B2, B5, B6.
 - **Scale:** About 1,300 emails and 1,150 names with spaces; no invalid or missing values.
 - **Effect on the client's number:** None in the brief's reports.
-- **What I did about it:** _Planned: trim and standardise._
+- **What I did about it:** Trimmed names, lowercased emails, one spelling per city, phones as `+233` and 9 digits (`cleanup/02_customers.sql`).
 - **Residual risk:** None.
 
 ## Looked wrong, is not wrong
