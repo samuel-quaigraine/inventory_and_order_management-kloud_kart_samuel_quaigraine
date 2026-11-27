@@ -54,14 +54,18 @@ WITH gap AS (
     LEFT JOIN inventory_log l ON l.product_id = p.product_id
     GROUP BY p.product_id, p.stock_quantity
     HAVING p.stock_quantity <> coalesce(sum(l.change_qty), 0)
+), next_log_id AS (
+    SELECT max(log_id) AS last_id
+    FROM (SELECT log_id FROM inventory_log
+          UNION ALL
+          SELECT log_id FROM inventory_log_quarantine) all_log_ids
 )
 INSERT INTO inventory_log (log_id, product_id, change_qty, reason, created_at, note)
-SELECT (SELECT max(log_id) FROM (SELECT log_id FROM inventory_log
-                                 UNION ALL SELECT log_id FROM inventory_log_quarantine) ids)
-         + row_number() OVER (ORDER BY product_id),
-       product_id,
-       difference,
+SELECT n.last_id + row_number() OVER (ORDER BY g.product_id),
+       g.product_id,
+       g.difference,
        'correction',
        now(),
        'cleanup: align log with stock (opening balance / removed rows)'
-FROM gap;
+FROM gap g
+CROSS JOIN next_log_id n;

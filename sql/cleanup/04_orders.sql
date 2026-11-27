@@ -2,15 +2,20 @@
 -- Orders: standardise status (F-01), quarantine orphan (F-04) and post-extract (F-08) orders.
 
 -- Status: 15 spellings become 5 values (completed, pending, shipped, cancelled, refunded).
-UPDATE orders
-SET status = CASE lower(trim(status))
-                 WHEN 'complete' THEN 'completed'
-                 WHEN 'canceled' THEN 'cancelled'
-                 ELSE lower(trim(status)) END
-WHERE status <> CASE lower(trim(status))
-                    WHEN 'complete' THEN 'completed'
-                    WHEN 'canceled' THEN 'cancelled'
-                    ELSE lower(trim(status)) END;
+-- The clean value is worked out once, then only rows that change are updated.
+WITH normalised AS (
+    SELECT order_id,
+           CASE lower(trim(status))
+                WHEN 'complete' THEN 'completed'
+                WHEN 'canceled' THEN 'cancelled'
+                ELSE lower(trim(status)) END AS clean_status
+    FROM orders
+)
+UPDATE orders o
+SET status = n.clean_status
+FROM normalised n
+WHERE n.order_id = o.order_id
+  AND o.status <> n.clean_status;
 
 -- Orphans: orders whose customer does not exist (ids 999xxx).
 -- DELETE ... RETURNING hands the removed rows straight to the quarantine insert.

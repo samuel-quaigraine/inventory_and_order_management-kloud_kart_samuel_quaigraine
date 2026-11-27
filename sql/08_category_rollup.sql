@@ -42,7 +42,7 @@ LANGUAGE sql STABLE AS $$
     GROUP BY c.category_id, c.category_name, d.depth
   UNION ALL
     -- 4. Products with no category would otherwise be invisible.
-    SELECT NULL, '(no category)', NULL,
+    SELECT NULL::integer, '(no category)'::text, NULL::integer,
            count(*) FILTER (WHERE stock_quantity <= p_threshold),
            count(*)
     FROM products
