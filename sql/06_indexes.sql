@@ -11,10 +11,10 @@ CREATE INDEX IF NOT EXISTS inventory_log_order_idx   ON inventory_log (order_id)
 CREATE INDEX IF NOT EXISTS products_category_idx     ON products (category_id);
 CREATE INDEX IF NOT EXISTS categories_parent_idx     ON categories (parent_id);
 
--- Monday report: picks spending orders in a 12-month window by date.
--- INCLUDE carries the other columns it needs, so it can be answered from the index alone.
-CREATE INDEX IF NOT EXISTS orders_report_idx
-    ON orders (order_date) INCLUDE (customer_id, status, total_amount);
+-- No index for the Monday report: its 12-month window covers most of the orders table, so
+-- reading the table once is fastest (EXPLAIN shows a full scan). Its speed comes from the
+-- redesign, not an index (ADR-003). An earlier version created one; it is removed here.
+DROP INDEX IF EXISTS orders_report_idx;
 
 -- Refresh the planner's statistics after cleanup changed so many rows.
 ANALYZE;

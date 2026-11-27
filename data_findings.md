@@ -25,7 +25,7 @@ Each table is counted at every stage. Rows removed by cleanup are in the matchin
 | order_items | 336,559 | 336,559 | 0 | 334,580 | −1,979 | 692 with no order, 519 whose order was quarantined, 614 repeats, 148 no price, 6 absurd |
 | inventory_log | 282,352 | 282,352 | 0 | 282,236 | −116 | 679 quarantined (519 duplicates, 120 no product, 40 after the extract); 563 corrections added (see Units) |
 
-Every row in every file was loaded (`check_setup.sql`). After cleanup, every row is either still in its table or in quarantine: none disappeared.
+Every row in every file was loaded (the row counts `given/load.sql` prints at the end). After cleanup, every row is either still in its table or in quarantine: none disappeared.
 
 ### 2. Money: do order totals agree with their lines? (H2)
 
@@ -126,7 +126,7 @@ Severity: **Critical** = loses money or customers, or makes a decision number wr
 - **How I detected it:** A3, A4, A5 (tree walk), G4.
 - **Scale:** 3 categories unreachable; 6 products inside them. A foreign key cannot catch the loop.
 - **Effect on the client's number:** The low-stock rollup skips them, or loops forever without a guard.
-- **What I did about it:** Any category the tree walk cannot reach is now top-level (one rule fixes both); a foreign key checks parents, and the rollup has a loop guard (ADR-004).
+- **What I did about it:** Any category the tree walk cannot reach is now top-level (one rule fixes both); a foreign key checks parents, and the rollup has a loop guard (ADR-004). Original links, for the record: 9001 → 9002, 9002 → 9001, 9003 → 8999.
 - **Residual risk:** The right parents are a business decision.
 
 ### F-08: Records after the extract ends — Severity: High
@@ -150,7 +150,7 @@ Severity: **Critical** = loses money or customers, or makes a decision number wr
 ### F-10: Weak audit trail — Severity: High
 
 - **What it is:** Manual changes with no usable reason; sales not linked to orders.
-- **How I detected it:** F3 (notes), F7 (stock-takes), G6 (log-to-order link).
+- **How I detected it:** F3 (notes), F7 (stock-takes), G6 (log-to-order link); the link count after the fix is printed by `05_audit_trail.sql`.
 - **Scale:** 216 of 485 corrections say "??", "see WhatsApp msg" or nothing. All 90 stock-takes record 0 and none was followed by a correction (F7), so the counts were never applied. A sale's timestamp equals its order's, so 261,968 of 262,088 sales can be linked back.
 - **Effect on the client's number:** Nana cannot answer "who changed this, and why?"
 - **What I did about it:** Every stock change now writes a log row automatically, with reason, order and user; log rows can't be edited and deleted ones are archived (ADR-002). Past sales were linked to their orders (261,005 linked).
@@ -192,7 +192,7 @@ Severity: **Critical** = loses money or customers, or makes a decision number wr
 | 7 categories with no parent | Missing data | They are the top-level categories (A1) |
 | 37 products with no category | Missing data | The test suite inserts products without one |
 | 406 duplicate product names | Duplicate products | Different ids and prices: generated names that collide (C3) |
-| 55 products at 15,000 GHS+ | Typos | Orders sell them at that price (C4) |
+| 55 products at 15,000 GHS+ | Typos | Customers paid 99.6% of the list price on average (C4, C6) |
 | Line prices below list | Wrong prices | Never above list: discounts (E6) |
 | kloudkart.com emails | Staff or test accounts | Same size as gmail or yahoo (B7) |
 | Lagos and Abuja customers | Wrong country | Plausibly a Nigeria pilot |
@@ -204,7 +204,7 @@ Severity: **Critical** = loses money or customers, or makes a decision number wr
 - **Whether the 24 orders dated after August 2026 are real.** They belong to real customers and their sales were recorded in the stock log. A wrong clock on the server would look exactly the same, so the data cannot tell the two apart.
 - **How the discounts and fees on orders were worked out.** Many order totals are 10%, 25% or 50% off the sum of their lines, but no column records why.
 - **Whether customers who share an email are the same person.** Their names match, but their phone numbers are always different.
-- **Which time zone the dates are in.** The database does not store one. Orders from Ghana and Nigeria are busiest at the same hours, so one clock was probably used for both.
+- **Which time zone the dates are in.** The database does not store one. Orders from Ghana and Nigeria are both busiest at 13:00 (D5), so one clock was probably used for both.
 
 **Decisions the data cannot make.** These are business rules. I have chosen a sensible default for each, and Nana should confirm them.
 

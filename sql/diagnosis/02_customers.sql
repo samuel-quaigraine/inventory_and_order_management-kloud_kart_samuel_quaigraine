@@ -25,10 +25,10 @@ FROM customers;
 -- B3. Duplicate emails: exact match vs after ignoring case and spaces.
 --     The gap between the two shows how many duplicates hide behind formatting.
 SELECT 'exact' AS match_type, count(*) AS duplicate_groups, sum(n) AS rows_involved
-FROM (SELECT count(*) AS n FROM customers GROUP BY email HAVING count(*) > 1) d
+FROM (SELECT count(*) AS n FROM customers GROUP BY email HAVING count(*) > 1) dupes
 UNION ALL
 SELECT 'normalised', count(*), sum(n)
-FROM (SELECT count(*) AS n FROM customers GROUP BY lower(trim(email)) HAVING count(*) > 1) d;
+FROM (SELECT count(*) AS n FROM customers GROUP BY lower(trim(email)) HAVING count(*) > 1) dupes;
 
 -- B4. Same person or not? Within each duplicate-email group, compare names, phones, cities.
 --     Phones compared on last 9 digits only, so format differences are ignored.
@@ -41,7 +41,7 @@ FROM (SELECT count(DISTINCT lower(trim(full_name))) AS names,
              count(DISTINCT lower(trim(city)))      AS cities
       FROM customers
       GROUP BY lower(trim(email))
-      HAVING count(*) > 1) g;
+      HAVING count(*) > 1) email_groups;
 
 -- B5. City spellings: raw values that collapse into one city once cleaned.
 --     Quotes show hidden spaces, e.g. "Accra " vs "Accra".

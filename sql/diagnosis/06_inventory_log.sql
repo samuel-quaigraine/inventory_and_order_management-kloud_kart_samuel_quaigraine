@@ -52,7 +52,7 @@ SELECT reason,
 FROM (SELECT reason, count(*) AS n, min(log_id) AS min_id, max(log_id) AS max_id
       FROM inventory_log
       GROUP BY product_id, change_qty, reason, created_at
-      HAVING count(*) > 1) d
+      HAVING count(*) > 1) dupes
 GROUP BY reason;
 
 -- F6. Opening stock: is each product's first log entry a restock?
@@ -60,7 +60,7 @@ GROUP BY reason;
 SELECT reason AS first_entry_reason, count(*) AS products
 FROM (SELECT DISTINCT ON (product_id) product_id, reason
       FROM inventory_log
-      ORDER BY product_id, created_at, log_id) f
+      ORDER BY product_id, created_at, log_id) first_entry
 GROUP BY reason
 ORDER BY products DESC;
 

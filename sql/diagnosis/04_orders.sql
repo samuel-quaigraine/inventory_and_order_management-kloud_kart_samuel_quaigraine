@@ -24,7 +24,7 @@ FROM (SELECT status,
                   WHEN 'complete' THEN 'completed'
                   WHEN 'canceled' THEN 'cancelled'
                   ELSE lower(trim(status)) END AS clean_status
-      FROM orders) s
+      FROM orders) cleaned
 GROUP BY clean_status
 ORDER BY orders DESC;
 
@@ -38,5 +38,15 @@ FROM orders;
 SELECT date_trunc('month', order_date)::date AS month,
        count(*)                              AS orders
 FROM orders
+GROUP BY 1
+ORDER BY 1;
+
+-- D5. Busiest order hours, Ghana vs Nigeria customers (no time zone is stored).
+--     The same peak hour in both suggests one clock was used for everyone.
+SELECT CASE WHEN lower(trim(c.city)) IN ('lagos', 'abuja') THEN 'Nigeria' ELSE 'Ghana' END AS country,
+       mode() WITHIN GROUP (ORDER BY extract(hour FROM o.order_date))                       AS busiest_hour,
+       count(*)                                                                             AS orders
+FROM orders o
+JOIN customers c ON c.customer_id = o.customer_id
 GROUP BY 1
 ORDER BY 1;

@@ -1,6 +1,9 @@
 -- 03_constraints.sql
 -- Purpose: Lock the cleaned data in. Data types, id generators, NOT NULL, CHECK, UNIQUE, foreign keys.
 -- Each rule is dropped first if it exists, so the file can be re-run.
+-- One transaction: all rules are added, or none.
+
+BEGIN;
 
 -- ===== Data types =====
 
@@ -112,3 +115,5 @@ ALTER TABLE inventory_log
          (reason = 'stock_take'            AND change_qty = 0)),
     DROP CONSTRAINT IF EXISTS inventory_log_product_fk,
     ADD  CONSTRAINT inventory_log_product_fk FOREIGN KEY (product_id) REFERENCES products (product_id);
+
+COMMIT;

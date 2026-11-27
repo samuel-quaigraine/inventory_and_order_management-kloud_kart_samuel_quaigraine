@@ -2,6 +2,9 @@
 -- Purpose: Every stock change leaves an inventory_log row, automatically, whoever makes it (ADR-002).
 -- Log rows can't be edited; deleted rows are kept in an archive.
 
+-- One transaction: if anything fails, the old triggers are not left half-removed.
+BEGIN;
+
 -- Triggers are removed first and recreated at the end, so this file can be re-run.
 DROP TRIGGER IF EXISTS products_stock_audit        ON products;
 DROP TRIGGER IF EXISTS inventory_log_no_edit       ON inventory_log;
@@ -112,3 +115,10 @@ $$;
 CREATE TRIGGER inventory_log_keep_deleted
 BEFORE DELETE ON inventory_log
 FOR EACH ROW EXECUTE FUNCTION keep_deleted_log();
+
+COMMIT;
+
+-- Check: how many past sales are now linked to their order (data_findings.md F-10).
+SELECT count(*) FILTER (WHERE reason = 'sale')                    AS sales,
+       count(order_id) FILTER (WHERE reason = 'sale')             AS linked_to_order
+FROM inventory_log;

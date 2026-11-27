@@ -46,7 +46,7 @@ FROM (SELECT count(*)                                     AS n,
              count(DISTINCT (quantity, unit_price))       AS variants
       FROM order_items
       GROUP BY order_id, product_id
-      HAVING count(*) > 1) g;
+      HAVING count(*) > 1) pair_groups;
 
 -- E6. Price charged vs current list price (zero/NULL prices excluded).
 --     Only ever lower or equal = line discounts, not price drift in both directions.

@@ -33,7 +33,7 @@ FROM (SELECT count(*)                    AS n,
              count(DISTINCT price)       AS prices
       FROM products
       GROUP BY lower(trim(product_name))
-      HAVING count(*) > 1) g;
+      HAVING count(*) > 1) name_groups;
 
 -- C4. Price bands: how prices are spread, to spot suspicious clusters.
 --     Prices of 15k+ look odd, but orders sell them at that price (not typos).
@@ -59,3 +59,11 @@ SELECT CASE WHEN stock_quantity < 0   THEN '1. negative'
 FROM products
 GROUP BY 1
 ORDER BY 1;
+
+-- C6. Products priced 15,000+: what customers actually paid for them.
+--     If the average paid is close to the list price, the high prices are real, not typos.
+SELECT count(DISTINCT p.product_id)                      AS products_15k_plus,
+       round(avg(i.unit_price / p.price) * 100, 1)       AS avg_paid_pct_of_list
+FROM products p
+JOIN order_items i ON i.product_id = p.product_id
+WHERE p.price >= 15000 AND i.unit_price > 0;

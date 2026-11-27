@@ -151,7 +151,7 @@ CREATE TABLE inventory_log_archive (
 
 -- ===== Indexes =====
 
--- The links between tables, and the Monday report's date range (sql/06_indexes.sql).
+-- The links between tables (sql/06_indexes.sql).
 -- order_items.order_id is covered by the UNIQUE (order_id, product_id) rule.
 CREATE INDEX orders_customer_idx       ON orders (customer_id);
 CREATE INDEX order_items_product_idx   ON order_items (product_id);
@@ -159,4 +159,3 @@ CREATE INDEX inventory_log_product_idx ON inventory_log (product_id, created_at)
 CREATE INDEX inventory_log_order_idx   ON inventory_log (order_id);
 CREATE INDEX products_category_idx     ON products (category_id);
 CREATE INDEX categories_parent_idx     ON categories (parent_id);
-CREATE INDEX orders_report_idx         ON orders (order_date) INCLUDE (customer_id, status, total_amount);

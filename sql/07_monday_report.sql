@@ -7,6 +7,10 @@
 --   * Spend = completed + shipped orders, using the order total (what the customer paid).
 --   * The 12 months are the 12 calendar months ending with the month of p_as_of.
 --   * Total spent and order count cover the same 12 months.
+--   * If p_as_of is mid-month, its month is partial (counted up to and including p_as_of).
+--   * Ranking uses row_number(): exactly p_top customers, ties broken by lowest customer id.
+--     rank() could return more than p_top when totals tie; Adwoa asked for a top 100.
+--   * Dates are compared in the server's time zone; the data is Ghana time (UTC+0).
 -- Why it is fast: it reads the orders table once (no order lines), groups once, and ranks once.
 -- The old design recalculated each customer and each month separately (benchmarks/report_before.sql).
 CREATE OR REPLACE FUNCTION monday_report(p_as_of date DEFAULT DATE '2026-08-31', p_top integer DEFAULT 100)
